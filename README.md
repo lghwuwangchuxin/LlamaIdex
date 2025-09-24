@@ -15,7 +15,7 @@
 ## 🛠 运行环境要求
 
 ### 系统要求
-- Python 3.8 或更高版本
+- Python 3.1.3 或更高版本
 - macOS/Linux/Windows (推荐 macOS 或 Linux)
 - 至少 8GB RAM (推荐 16GB 或更多)
 - 至少 20GB 可用磁盘空间
