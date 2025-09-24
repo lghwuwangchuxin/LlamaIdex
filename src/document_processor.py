@@ -7,13 +7,17 @@ class DocumentProcessor:
 
     def __init__(self, logger):
         self.logger = logger
-        self.file_path = "/Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt"
+        self.file_paths = [
+            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/xiaomaiUltra.txt",
+            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt",
+            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/Qwen1.5-110B.pdf",
+        ]
 
     def load_documents(self):
         """加载与读取文档"""
         try:
             self.logger.log_message("开始加载文档...")
-            reader = SimpleDirectoryReader(input_files=[self.file_path])
+            reader = SimpleDirectoryReader(input_files=self.file_paths)
             documents = reader.load_data()
 
             if not documents:
