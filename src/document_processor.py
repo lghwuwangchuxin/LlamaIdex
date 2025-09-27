@@ -1,3 +1,4 @@
+# document_processor.py
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
 
@@ -5,8 +6,9 @@ from llama_index.core.node_parser import SentenceSplitter
 class DocumentProcessor:
     """文档处理类"""
 
-    def __init__(self, logger):
+    def __init__(self, logger, debug_monitor=None):
         self.logger = logger
+        self.debug_monitor = debug_monitor
         self.file_paths = [
             "/Users/liuguanghu/PythonPorject/LlamaIdex/data/xiaomaiUltra.txt",
             "/Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt",

@@ -1,3 +1,4 @@
+# milvus_manager.py
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from pymilvus import connections, utility, Collection
 
@@ -5,8 +6,9 @@ from pymilvus import connections, utility, Collection
 class MilvusManager:
     """Milvus数据库管理类"""
 
-    def __init__(self, logger):
+    def __init__(self, logger, debug_monitor=None):
         self.logger = logger
+        self.debug_monitor = debug_monitor
         self.host = "127.0.0.1"
         self.port = "19530"
         self.collection_name = "ragdb"

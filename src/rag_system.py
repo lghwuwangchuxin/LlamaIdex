@@ -1,17 +1,23 @@
+# rag_system.py
+from typing import Any, List
+
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core import Settings
 from pymilvus import Collection
 import traceback
+import time
+import json
 
 
 class RAGSystem:
     """RAG系统主类"""
 
-    def __init__(self, logger, model_manager, milvus_manager, document_processor):
+    def __init__(self, logger, model_manager, milvus_manager, document_processor, debug_monitor=None):
         self.logger = logger
         self.model_manager = model_manager
         self.milvus_manager = milvus_manager
         self.document_processor = document_processor
+        self.debug_monitor = debug_monitor
         self.vector_store = None
         self.index = None
         self.query_engine = None
@@ -29,7 +35,13 @@ class RAGSystem:
 
             # 3. 加载和处理文档
             documents = self.document_processor.load_documents()
+
+            # 监控文本分割事件
             nodes = self.document_processor.split_documents(documents)
+            if self.debug_monitor:
+                text_chunks = [doc.text for doc in documents] if documents else []
+                self.debug_monitor.monitor_text_split_event(text_chunks)
+                self.debug_monitor.monitor_node_parse_event(nodes)
 
             # 4. 获取嵌入模型维度
             self.logger.log_message("正在测试嵌入模型维度...")
@@ -38,6 +50,14 @@ class RAGSystem:
                     "This is a test sentence to determine embedding dimension.")
                 actual_dim = len(test_embedding)
                 self.logger.log_message(f"嵌入模型 'nomic-embed-text' 实际维度: {actual_dim}")
+
+                # 监控文本嵌入事件
+                if self.debug_monitor:
+                    embedding_info = {
+                        'dimension': actual_dim,
+                        'text_count': 1
+                    }
+                    self.debug_monitor.monitor_text_embedding_event(embedding_info)
             except Exception as dim_error:
                 self.logger.log_message(f"获取嵌入模型维度失败: {dim_error}", "ERROR")
                 actual_dim = 768  # 默认维度
@@ -62,6 +82,14 @@ class RAGSystem:
                 try:
                     embedding = Settings.embed_model.get_text_embedding(first_node.text[:100])
                     self.logger.log_message(f"成功生成嵌入，维度: {len(embedding)}")
+
+                    # 监控文本嵌入事件
+                    if self.debug_monitor:
+                        embedding_info = {
+                            'dimension': len(embedding),
+                            'text_count': 1
+                        }
+                        self.debug_monitor.monitor_text_embedding_event(embedding_info)
                 except Exception as emb_error:
                     self.logger.log_message(f"嵌入生成测试失败: {emb_error}", "ERROR")
 
@@ -92,6 +120,77 @@ class RAGSystem:
             self.logger.log_message(f"详细错误信息: {traceback.format_exc()}", "ERROR")
             return False
 
+    def _safe_extract_response(self, response: Any) -> str:
+        """
+        安全地提取响应内容，处理各种响应类型
+
+        Args:
+            response: 可能是 Response、ChatResponse、str 等类型的响应对象
+
+        Returns:
+            str: 提取的响应文本
+        """
+        try:
+            # 如果是字符串，直接返回
+            if isinstance(response, str):
+                return response
+
+            # 如果是 Response 对象，且有 response 属性
+            if hasattr(response, 'response'):
+                response_content = response.response
+
+                # 如果 response 属性是字符串
+                if isinstance(response_content, str):
+                    return response_content
+
+                # 如果是 ChatResponse 或类似对象
+                if hasattr(response_content, 'message') and hasattr(response_content.message, 'content'):
+                    return response_content.message.content
+
+                # 其他情况转换为字符串
+                return str(response_content)
+
+            # 如果是 ChatResponse 对象（直接就是，而不是在 response 属性中）
+            if hasattr(response, 'message') and hasattr(response.message, 'content'):
+                return response.message.content
+
+            # 最后尝试转换为字符串
+            return str(response)
+
+        except Exception as e:
+            self.logger.log_message(f"响应内容提取失败: {e}", "WARNING")
+            return "无法获取响应内容"
+
+    def _safe_extract_source_nodes(self, response: Any) -> List[Any]:
+        """
+        安全地提取源节点信息
+
+        Args:
+            response: 响应对象
+
+        Returns:
+            List: 源节点列表
+        """
+        try:
+            # 优先尝试 source_nodes 属性
+            if hasattr(response, 'source_nodes') and response.source_nodes:
+                return response.source_nodes
+
+            # 尝试 metadata 中的 source_nodes
+            if hasattr(response, 'metadata') and isinstance(response.metadata, dict):
+                nodes = response.metadata.get('source_nodes', [])
+                if nodes:
+                    return nodes
+
+            # 尝试从 response 属性中查找
+            if hasattr(response, 'response'):
+                return self._safe_extract_source_nodes(response.response)
+
+            return []
+
+        except Exception as e:
+            self.logger.log_message(f"源节点提取失败: {e}", "WARNING")
+            return []
     def run_interactive_qa(self):
         """运行交互式问答"""
         self.logger.log_message("欢迎使用AI助手！输入 'exit' 退出程序。")
@@ -108,14 +207,49 @@ class RAGSystem:
                     continue
 
                 self.logger.log_message(f"正在处理用户问题: {user_input}")
+
+                # 监控查询引擎事件开始
+                if self.debug_monitor:
+                    self.debug_monitor.monitor_query_engine_event(user_input)
+
                 response = self.query_engine.query(user_input)
+                # 安全地提取响应内容
+                response_content = self._safe_extract_response(response)
+                source_nodes = self._safe_extract_source_nodes(response)
+                # 记录成功查询事件
+                self.logger.log_message(f"查询成功: 问题长度={len(user_input)}, 响应长度={len(response_content)}")
+
+                # 监控查询引擎事件完成
+                if self.debug_monitor:
+                    self.debug_monitor.monitor_query_engine_event(user_input)
+                response = self.query_engine.query(user_input)
+                # 监控大模型调用事件
+                #self.debug_monitor.monitor_llm_call_event(user_input, response)
                 print("AI助手：", response.response)
 
                 # 显示来源信息
                 if hasattr(response, 'source_nodes') and response.source_nodes:
                     print("\n来源信息：")
-                    for i, node in enumerate(response.source_nodes[:3]):  # 显示前3个来源
-                        print(f"{i + 1}. {node.text[:200]}...")  # 显示前200个字符
+                    MAX_SOURCE_NODES = 3
+                    MAX_TEXT_LENGTH = 200
+                    for i, node in enumerate(response.source_nodes[:MAX_SOURCE_NODES]):
+                        try:
+                            if hasattr(node, 'text') and isinstance(node.text, str):
+                                # 安全截取文本，避免在多字节字符中间截断
+                                if len(node.text) > MAX_TEXT_LENGTH:
+                                    display_text = node.text[:MAX_TEXT_LENGTH] + "..."
+                                else:
+                                    display_text = node.text
+                                print(f"{i + 1}. {display_text}")
+                            else:
+                                print(f"{i + 1}. [无法获取有效文本内容]")
+                        except Exception as e:
+                            print(f"{i + 1}. [文本处理出错: {str(e)}]")
+
+                    # 监控语义检索事件
+                    if self.debug_monitor:
+                        self.debug_monitor.monitor_semantic_retrieval_event(response.source_nodes, user_input)
+
                 print("-" * 50)
 
             except KeyboardInterrupt:

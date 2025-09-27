@@ -64,6 +64,7 @@ LlamaIdex/
 ├── model_manager.py # 模型管理模块
 ├── milvus_manager.py # Milvus 数据库管理模块
 ├── document_processor.py # 文档处理模块
+├── AdvancedLlamaDebugMonitor.py # 高级调试监控模块
 ├── rag_system.py # RAG 系统主控制模块
 ├── data/ # 文档数据目录
 │ └── yiyan.txt # 示例文档文件

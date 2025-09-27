@@ -1,3 +1,4 @@
+# model_manager.py
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core import Settings
@@ -6,8 +7,9 @@ from llama_index.core import Settings
 class ModelManager:
     """模型管理类"""
 
-    def __init__(self, logger):
+    def __init__(self, logger, debug_monitor=None):
         self.logger = logger
+        self.debug_monitor = debug_monitor
 
     def setup_models(self):
         """设置Ollama模型"""
