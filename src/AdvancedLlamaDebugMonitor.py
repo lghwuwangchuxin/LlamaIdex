@@ -5,7 +5,6 @@ from typing import List, Dict, Any, Optional
 import time
 import json
 
-
 class AdvancedLlamaDebugMonitor:
     """
     高级 LlamaIndex 调试监控类
@@ -45,24 +44,7 @@ class AdvancedLlamaDebugMonitor:
             'agent_step': 0
         }
 
-        #基础事件类型
-        #CHUNKING: 文本分块事件 - 记录文档分割前后的文本块信息
-        #NODE_PARSING: 节点解析事件 - 记录文档解析为节点的过程
-        #EMBEDDING: 文本嵌入事件 - 记录文本向量化嵌入的处理过程
-        #LLM: 大语言模型调用事件 - 记录LLM的提示词模板和响应调用
-        #QUERY: 查询事件 - 跟踪每个查询的开始和结束过程
-        #RETRIEVE: 检索事件 - 记录查询时节点检索的相关信息
-        #SYNTHESIZE: 合成事件 - 记录结果合成调用的日志
-        #SUB_QUESTION: 子问题事件 - 记录生成的子问题及答案
-        #高级事件类型
-        #TEMPLATING: 模板事件 - 记录提示词模板的组装和处理
-        #FUNCTION_CALL: 函数调用事件 - 记录LLM函数调用的过程
-        #RERANKING: 重排序事件 - 记录检索结果重排序的处理
-        #EXCEPTION: 异常事件 - 记录处理过程中发生的异常
-        #AGENT_STEP: 智能体步骤事件 - 记录Agent执行的各个步骤
-        #叶子事件类型
-        #LEAF_EVENTS: 叶子事件集合 - 包含
-        #CHUNKING、LLM、EMBEDDING，这些事件不会产生子事件
+        # 基础事件类型映射
         self.event_type_mapping = {
             'text_split': CBEventType.CHUNKING,
             'node_parse': CBEventType.NODE_PARSING,

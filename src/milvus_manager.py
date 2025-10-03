@@ -1,7 +1,7 @@
 # milvus_manager.py
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from pymilvus import connections, utility, Collection
-
+from config_manager import get_config_manager
 
 class MilvusManager:
     """Milvus数据库管理类"""
@@ -9,11 +9,11 @@ class MilvusManager:
     def __init__(self, logger, debug_monitor=None):
         self.logger = logger
         self.debug_monitor = debug_monitor
-        self.host = "127.0.0.1"
-        self.port = "19530"
-        self.collection_name = "ragdb"
-        self.db_name = "rag_database"
-
+        config_manager = get_config_manager()
+        self.host = config_manager.get("Milvus", "host", "127.0.0.1")
+        self.port = config_manager.get("Milvus", "port", "19530")
+        self.collection_name = config_manager.get("Milvus", "collection_name", "ragdb")
+        self.db_name = config_manager.get("Milvus", "database_name", "rag_database")
     def connect(self):
         """连接到Milvus服务"""
         try:

@@ -1,7 +1,7 @@
 # document_processor.py
 from llama_index.core import SimpleDirectoryReader
 from llama_index.core.node_parser import SentenceSplitter
-
+from config_manager import get_config_manager
 
 class DocumentProcessor:
     """文档处理类"""
@@ -9,11 +9,22 @@ class DocumentProcessor:
     def __init__(self, logger, debug_monitor=None):
         self.logger = logger
         self.debug_monitor = debug_monitor
-        self.file_paths = [
-            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/xiaomaiUltra.txt",
-            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt",
-            "/Users/liuguanghu/PythonPorject/LlamaIdex/data/Qwen1.5-110B.pdf",
-        ]
+
+        # 从配置文件读取配置
+        config_manager = get_config_manager()
+        file_path = config_manager.get("Document", "file_path")
+        self.chunk_size = config_manager.get_int("Document", "chunk_size", 500)
+        self.chunk_overlap = config_manager.get_int("Document", "chunk_overlap", 20)
+
+        # 设置文件路径
+        if file_path:
+            self.file_paths = [file_path]
+        else:
+            self.file_paths = [
+                "/Users/liuguanghu/PythonPorject/LlamaIdex/data/xiaomaiUltra.txt",
+                "/Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt",
+                "/Users/liuguanghu/PythonPorject/LlamaIdex/data/Qwen1.5-110B.pdf",
+            ]
 
     def load_documents(self):
         """加载与读取文档"""
@@ -45,7 +56,8 @@ class DocumentProcessor:
             if not documents:
                 raise Exception("没有文档可供分割")
 
-            node_parser = SentenceSplitter(chunk_size=500, chunk_overlap=20)
+            # 使用配置文件中的chunk_size和chunk_overlap
+            node_parser = SentenceSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap)
             nodes = node_parser.get_nodes_from_documents(documents, show_progress=True)
 
             if not nodes:
