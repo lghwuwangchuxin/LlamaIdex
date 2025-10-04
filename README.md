@@ -16,7 +16,7 @@
 
 ### 系统要求
 
-- Python 3.8 或更高版本
+- Python 3.13 或更高版本
 - macOS/Linux/Windows (推荐 macOS 或 Linux)
 - 至少 8GB RAM (推荐 16GB 或更多)
 - 至少 20GB 可用磁盘空间
@@ -100,6 +100,7 @@ LlamaIdex/
 ├── monitoring_mode.py      # 监控模式管理模块
 ├── lang_fuse.py            # Langfuse 监控集成模块
 ├── config_manager.py       # 配置管理模块
+├── prompts.py              # 提示模版管理模块
 ├── config/                 # 配置文件目录
 │   └── config.ini          # 系统配置文件
 ├── data/                   # 文档数据目录
