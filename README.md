@@ -80,6 +80,7 @@ pip install llama-index-embeddings-ollama
 pip install llama-index-vector-stores-milvus
 pip install pymilvus
 pip install langfuse openinference-instrumentation-llama-index python-dotenv llama-index
+pip install llama-index-readers-web
 ```
 
 ### 5. 准备数据文件

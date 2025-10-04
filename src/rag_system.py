@@ -70,13 +70,24 @@ class RAGSystem:
                 milvus_span.end()
 
             # 3. 加载和处理文档
-            document_span = self.monitoring_manager.langfuse_create_span(trace, name="document-processing")
-            documents = self.document_processor.load_documents()
-            nodes = self.document_processor.split_documents(documents)
-            # 在调用 end() 方法前添加空值检查
-            if document_span is not None:
-                document_span.end()
+            try:
+                documents = self.document_processor.load_documents()
+                if not documents:
+                    raise Exception("未加载到任何文档")
 
+                # 监控文本分割事件
+                nodes = self.document_processor.split_documents(documents)
+                if not nodes:
+                    raise Exception("文档分割后未生成任何节点")
+
+                self.monitoring_manager.debug_monitor_text_split_event(
+                    [doc.text for doc in documents] if documents else []
+                )
+                self.monitoring_manager.debug_monitor_node_parse_event(nodes)
+                self.logger.log_message(f"成功加载并处理 {len(documents)} 个文档，生成 {len(nodes)} 个节点")
+            except Exception as e:
+                self.logger.log_message(f"文档加载和处理失败: {e}", "ERROR")
+                raise
 
             # 4. 获取嵌入模型维度
             self.logger.log_message("正在测试嵌入模型维度...")

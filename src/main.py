@@ -7,7 +7,6 @@ from AdvancedLlamaDebugMonitor import AdvancedLlamaDebugMonitor
 from lang_fuse import initialize_langfuse, get_langfuse_client, get_langfuse_manager
 from monitoring_mode import MonitoringMode, get_monitoring_manager
 import argparse
-from config_manager import get_config_manager  # 添加导入
 
 def parse_arguments():
     """解析命令行参数"""
@@ -27,7 +26,6 @@ def main():
 
     # 初始化监控管理器
     monitoring_manager = get_monitoring_manager()
-
     # 根据模式初始化相应监控组件
     debug_monitor = None
     langfuse_client = None
