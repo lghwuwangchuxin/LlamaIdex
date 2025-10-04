@@ -1,8 +1,10 @@
 from typing import Any, List
-from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.core import VectorStoreIndex, StorageContext,PromptTemplate
 from llama_index.core import Settings
 from pymilvus import Collection
 import traceback
+from prompts import PromptTemplates
+from config_manager import get_config_manager
 class RAGSystem:
     """RAG系统主类 - 实现完整的检索增强生成系统"""
 
@@ -25,6 +27,8 @@ class RAGSystem:
         self.vector_store = None
         self.index = None
         self.query_engine = None
+        config_manager = get_config_manager()
+        self.default_template_type = config_manager.get("App", "qa_template", "default")
 
     def initialize_system(self):
         """
@@ -132,7 +136,16 @@ class RAGSystem:
             # 7. 创建查询引擎
             self.logger.log_message("开始构造查询引擎...")
             query_span = self.monitoring_manager.langfuse_create_span(trace, name="query-engine-setup")
-            self.query_engine = self.index.as_query_engine()
+            # 自定义查询模版
+            # 根据配置文件中的设置选择模板
+            template_str = PromptTemplates.get_template_by_name(self.default_template_type)
+            if self.default_template_type == 'step_by_step':
+                template_var_mappings = {"my_context_str": "context_str", "my_query_str": "query_str"}
+                qa_template = PromptTemplates.create_prompt_template(template_str, template_var_mappings)
+            else:
+                qa_template = PromptTemplates.create_prompt_template(template_str)
+
+            self.query_engine = self.index.as_query_engine(text_qa_template=qa_template)
             self.logger.log_message("查询引擎已准备就绪")
             if query_span is not None:
                 query_span.end()
@@ -238,7 +251,16 @@ class RAGSystem:
 
             # 7. 创建查询引擎
             self.logger.log_message("开始构造查询引擎...")
-            self.query_engine = self.index.as_query_engine()
+            # 自定义查询模版
+            # 根据配置文件中的设置选择模板
+            template_str = PromptTemplates.get_template_by_name(self.default_template_type)
+            if self.default_template_type == 'step_by_step':
+                template_var_mappings = {"my_context_str": "context_str", "my_query_str": "query_str"}
+                qa_template = PromptTemplates.create_prompt_template(template_str, template_var_mappings)
+            else:
+                qa_template = PromptTemplates.create_prompt_template(template_str)
+
+            self.query_engine = self.index.as_query_engine(text_qa_template=qa_template)
             self.logger.log_message("查询引擎已准备就绪")
 
             return True
@@ -376,7 +398,6 @@ class RAGSystem:
 
             # 显示来源信息
             if hasattr(response, 'source_nodes') and response.source_nodes:
-                print("\n来源信息：")
                 MAX_SOURCE_NODES = 3
                 MAX_TEXT_LENGTH = 200
                 for i, node in enumerate(response.source_nodes[:MAX_SOURCE_NODES]):
