@@ -277,6 +277,118 @@ G --> I[生成回答]
 - Span 性能分析
 - 模型调用监控
 - 系统性能指标
+基于系统中可用的分割器类型，我将为 README.md 文件增加详细的分割器类型说明：
+
+## 📐 分割器类型详解
+
+系统支持多种文档分割器，可根据不同文档类型和应用场景选择合适的分割策略：
+
+### 1. 基础文本分割器
+
+#### `SentenceSplitter`
+- **用途**: 基于句子边界分割文本，保持语义完整性
+- **适用场景**: 通用文本处理，常规文档分割
+- **特点**: 按照标点符号识别句子边界，避免语义截断
+
+#### `TokenTextSplitter`
+- **用途**: 基于token计数进行文本分割
+- **适用场景**: 需要精确控制token数量的情况（如大模型输入长度限制）
+- **特点**: 更精确地控制文本块大小，适合对token预算有严格要求的场景
+
+### 2. 代码分割器
+
+#### `CodeSplitter`
+- **用途**: 专门用于代码文件的分割
+- **适用场景**: 处理源代码文件（Python, JavaScript, Java等）
+- **特点**: 识别代码语法结构，避免在函数或类定义中间分割
+
+### 3. 结构化文档分割器
+
+#### `MarkdownNodeParser`
+- **用途**: Markdown格式文档专用解析器
+- **适用场景**: 处理.md文件，保留Markdown结构信息
+- **特点**: 识别标题、代码块、列表等Markdown元素
+
+#### `HTMLNodeParser`
+- **用途**: HTML格式文档专用解析器
+- **适用场景**: 处理网页内容或HTML格式文档
+- **特点**: 解析HTML标签结构，保留文档层次关系
+
+#### `JSONNodeParser`
+- **用途**: JSON格式数据专用解析器
+- **适用场景**: 处理JSON结构化数据
+- **特点**: 解析JSON对象和数组结构
+
+### 4. 上下文感知分割器
+
+#### `SentenceWindowNodeParser`
+- **用途**: 创建包含上下文窗口的句子节点
+- **适用场景**: 需要前后文信息的检索场景
+- **特点**: 为每个句子节点附加前后若干句子作为上下文
+
+### 5. 语义分割器
+
+#### `SemanticSplitterNodeParser`
+- **用途**: 基于语义相似度进行文本分割
+- **适用场景**: 对语义连贯性要求较高的文档处理
+- **特点**: 利用嵌入模型计算语义相似度，避免在语义不连贯处分割
+
+#### `SemanticDoubleMergingSplitterNodeParser`
+- **用途**: 双重语义合并分割器
+- **适用场景**: 需要更精细语义分割的复杂文档
+- **特点**: 采用双重合并策略，提供更准确的语义分割点
+
+### 6. 层次化分割器
+
+#### `HierarchicalNodeParser`
+- **用途**: 创建多层次节点结构
+- **适用场景**: 构建多粒度索引，支持不同层级的检索
+- **特点**: 生成父-子节点关系，支持层次化查询
+
+### 7. 特殊格式分割器
+
+#### `MarkdownElementNodeParser`
+- **用途**: Markdown元素解析器
+- **适用场景**: 需要细粒度处理Markdown各元素的场景
+- **特点**: 单独解析每个Markdown元素（标题、段落、代码块等）
+
+#### `UnstructuredElementNodeParser`
+- **用途**: 非结构化元素解析器
+- **适用场景**: 处理复杂的非结构化文档
+- **特点**: 支持表格、图像描述等复杂元素解析
+
+### 8. 第三方集成分割器
+
+#### `LangchainNodeParser`
+- **用途**: 集成Langchain的节点解析器
+- **适用场景**: 已使用Langchain生态的项目
+- **特点**: 兼容Langchain的文档处理流程
+
+## ⚙️ 分割器配置
+
+在 [config.ini](file:///Users/liuguanghu/PythonPorject/LlamaIdex/config/config.ini) 文件中添加分割器配置：
+
+```ini
+[Document]
+file_path = /Users/liuguanghu/PythonPorject/LlamaIdex/data/yiyan.txt
+chunk_size = 500
+chunk_overlap = 20
+splitter_type = sentence  # 可选: sentence, token, code, markdown, html, json, sentence_window, semantic, hierarchical
+```
+
+
+## 🎯 分割器选择指南
+
+| 文档类型 | 推荐分割器 | 理由 |
+|---------|-----------|------|
+| 普通文本 | `SentenceSplitter` | 保持语义完整性 |
+| 技术文档 | `SemanticSplitterNodeParser` | 维持主题一致性 |
+| 源代码 | `CodeSplitter` | 保持代码结构完整 |
+| Markdown | `MarkdownNodeParser` | 保留文档结构 |
+| 网页内容 | `HTMLNodeParser` | 解析HTML结构 |
+| JSON数据 | `JSONNodeParser` | 处理结构化数据 |
+| 需要上下文 | `SentenceWindowNodeParser` | 提供前后文信息 |
+| 多层级检索 | `HierarchicalNodeParser` | 构建层次化索引 |
 
 ## 🔒 安全建议
 

@@ -1,14 +1,21 @@
 # document_processor.py
 from typing import List
 from llama_index.core import SimpleDirectoryReader
-from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.node_parser import (
+    SentenceSplitter,
+    TokenTextSplitter,
+    CodeSplitter,
+    SentenceWindowNodeParser,
+    HierarchicalNodeParser,
+    SemanticSplitterNodeParser
+)
 from config_manager import get_config_manager
 from llama_index.readers.web import SimpleWebPageReader
+
 
 class DocumentProcessor:
     """文档处理类"""
 
-    # document_processor.py
     def __init__(self, logger, debug_monitor=None):
         self.logger = logger
         self.debug_monitor = debug_monitor
@@ -23,6 +30,9 @@ class DocumentProcessor:
         # 获取文档加载方式配置
         self.load_mode = config_manager.get("Document", "load_mode", "file")
 
+        # 获取分割器类型配置
+        self.splitter_type = config_manager.get("Document", "splitter_type", "sentence")
+
         # 获取网络URL配置
         web_urls = config_manager.get("Document", "web_urls")
         if web_urls:
@@ -32,11 +42,12 @@ class DocumentProcessor:
             self.web_urls = []
 
         self.logger.log_message(
-            f"文档处理器配置 - 加载模式: {self.load_mode}, 分块大小: {self.chunk_size}, 重叠: {self.chunk_overlap}")
+            f"文档处理器配置 - 加载模式: {self.load_mode}, 分割器类型: {self.splitter_type}, 分块大小: {self.chunk_size}, 重叠: {self.chunk_overlap}")
 
         # 设置文件路径
         if file_path:
             self.file_paths = [path.strip() for path in file_path.split(",") if path.strip()]
+
     def load_documents(self):
         """根据配置加载文档"""
         try:
@@ -130,6 +141,71 @@ class DocumentProcessor:
             self.logger.log_message(f"从网页加载数据失败: {e}", "ERROR")
             raise
 
+    def create_node_parser(self):
+        """
+        根据配置创建相应的节点分割器
+
+        Returns:
+            BaseNodeParser: 节点分割器实例
+        """
+        if self.splitter_type == "sentence":
+            # SentenceSplitter: 基于句子的分割器，适用于一般文本
+            self.logger.log_message("使用 SentenceSplitter 进行文档分割")
+            return SentenceSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap
+            )
+
+        elif self.splitter_type == "token":
+            # TokenTextSplitter: 基于token的分割器，适用于控制token数量的场景
+            self.logger.log_message("使用 TokenTextSplitter 进行文档分割")
+            return TokenTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap
+            )
+
+        elif self.splitter_type == "code":
+            # CodeSplitter: 专门针对代码的分割器，保持代码结构完整性
+            self.logger.log_message("使用 CodeSplitter 进行代码文档分割")
+            # 注意：CodeSplitter通常需要指定语言
+            language = "python"  # 可从配置获取
+            return CodeSplitter(
+                language=language
+            )
+
+        elif self.splitter_type == "sentence_window":
+            # SentenceWindowNodeParser: 创建句子窗口节点，适用于需要上下文的场景
+            self.logger.log_message("使用 SentenceWindowNodeParser 进行文档分割")
+            return SentenceWindowNodeParser(
+                window_size=3,  # 可从配置获取
+                window_metadata_key="window",
+                original_text_metadata_key="original_text"
+            )
+
+        elif self.splitter_type == "hierarchical":
+            # HierarchicalNodeParser: 分层节点解析器，适用于构建层次化索引
+            self.logger.log_message("使用 HierarchicalNodeParser 进行文档分割")
+            return HierarchicalNodeParser.from_defaults(
+                chunk_sizes=[2048, 512, 128]  # 可从配置获取
+            )
+
+        elif self.splitter_type == "semantic":
+            # SemanticSplitterNodeParser: 语义分割器，基于嵌入相似度进行分割
+            self.logger.log_message("使用 SemanticSplitterNodeParser 进行文档分割")
+            # 需要嵌入模型，这里简化处理
+            return SemanticSplitterNodeParser(
+                buffer_size=1,  # 可从配置获取
+                breakpoint_percentile_threshold=95  # 可从配置获取
+            )
+
+        else:
+            # 默认使用SentenceSplitter
+            self.logger.log_message("使用默认的 SentenceSplitter 进行文档分割")
+            return SentenceSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap
+            )
+
     def split_documents(self, documents):
         """分割文档"""
         try:
@@ -137,8 +213,8 @@ class DocumentProcessor:
             if not documents:
                 raise Exception("没有文档可供分割")
 
-            # 使用配置文件中的chunk_size和chunk_overlap
-            node_parser = SentenceSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap)
+            # 根据配置创建相应的节点分割器
+            node_parser = self.create_node_parser()
             nodes = node_parser.get_nodes_from_documents(documents, show_progress=True)
 
             if not nodes:
