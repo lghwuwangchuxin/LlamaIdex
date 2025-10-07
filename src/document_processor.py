@@ -11,7 +11,14 @@ from llama_index.core.node_parser import (
 )
 from config_manager import get_config_manager
 from llama_index.readers.web import SimpleWebPageReader
-
+from llama_index.core.ingestion import IngestionPipeline
+# 导入自定义转换器
+from data_transformers import (
+    DocumentCleaner,
+    MetadataEnricher,
+    ContentFilter,
+    DocumentDeduplicator
+)
 
 class DocumentProcessor:
     """文档处理类"""
@@ -48,6 +55,25 @@ class DocumentProcessor:
         if file_path:
             self.file_paths = [path.strip() for path in file_path.split(",") if path.strip()]
 
+        # 创建数据处理管道
+        self.ingestion_pipeline = self._create_ingestion_pipeline()
+
+    def _create_ingestion_pipeline(self) -> IngestionPipeline:
+        """创建数据处理管道"""
+        # 定义转换组件
+        transformations = [
+            DocumentCleaner(),
+            ContentFilter(),
+            DocumentDeduplicator(),
+            MetadataEnricher()
+        ]
+        # 创建处理管道
+        pipeline = IngestionPipeline(
+            transformations=transformations
+        )
+
+        return pipeline
+
     def load_documents(self):
         """根据配置加载文档"""
         try:
@@ -55,9 +81,9 @@ class DocumentProcessor:
             self.logger.log_message(f"当前加载模式: {self.load_mode}")
             self.logger.log_message(f"Web URLs: {self.web_urls}")
             if self.load_mode == "web":
-                return self.load_documents_from_web(self.web_urls)
+                documents = self.load_documents_from_web(self.web_urls)
             elif self.load_mode == "url":
-                return self.load_documents_from_url(self.web_urls)
+                documents = self.load_documents_from_url(self.web_urls)
             else:  # 默认file模式
                 self.logger.log_message("开始加载本地文档...")
                 reader = SimpleDirectoryReader(input_files=self.file_paths)
@@ -74,7 +100,12 @@ class DocumentProcessor:
                 for i, doc in enumerate(documents[:3]):  # 只显示前3个文档
                     self.logger.log_message(f"文档 {i + 1}: {doc.text[:200]}...")  # 显示前200个字符
 
-                return documents
+            # 使用 IngestionPipeline 处理文档
+            self.logger.log_message("开始通过 IngestionPipeline 处理文档...")
+            processed_documents = self.ingestion_pipeline.run(documents=documents)
+            self.logger.log_message(f"IngestionPipeline 处理完成，处理后文档数: {len(processed_documents)}")
+
+            return processed_documents
         except Exception as e:
             self.logger.log_message(f"加载文档失败: {e}", "ERROR")
             raise
