@@ -1,10 +1,11 @@
 from typing import Any, List
-from llama_index.core import VectorStoreIndex, StorageContext,PromptTemplate
+from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core import Settings
 from pymilvus import Collection
 import traceback
 from prompts import PromptTemplates
 from config_manager import get_config_manager
+from storage_index import IndexFactory, MultiIndexManager
 class RAGSystem:
     """RAG系统主类 - 实现完整的检索增强生成系统"""
 
@@ -29,6 +30,98 @@ class RAGSystem:
         self.query_engine = None
         config_manager = get_config_manager()
         self.default_template_type = config_manager.get("App", "qa_template", "default")
+        self.multi_index_manager = MultiIndexManager()  # 添加多索引管理器
+
+    def _create_additional_indexes(self, nodes):
+        """
+        创建额外的索引类型
+
+        Args:
+            nodes: 文档节点列表
+        """
+        # 创建关键词索引
+        keyword_data = {}
+        for i, node in enumerate(nodes):
+            doc_id = f"doc_{i}"
+            # 简单的关键词提取（实际应用中可使用更复杂的算法）
+            keywords = list(set(node.text.lower().split()))[:10]  # 取前10个关键词
+            keyword_data[doc_id] = {
+                'content': node.text,
+                'keywords': keywords
+            }
+
+        keyword_index = IndexFactory.create_index('keyword_table', 'document_keywords')
+        keyword_index.build(keyword_data)
+        self.multi_index_manager.add_index('keywords', keyword_index)
+
+        # 创建摘要索引
+        summary_data = {}
+        for i, node in enumerate(nodes):
+            doc_id = f"doc_{i}"
+            # 简单摘要（实际应用中可使用LLM生成摘要）
+            summary = " ".join(node.text.split()[:50]) + "..."  # 前50个词作为摘要
+            summary_data[doc_id] = {
+                'document': node.text,
+                'summary': summary
+            }
+
+        summary_index = IndexFactory.create_index('summary', 'document_summaries')
+        summary_index.build(summary_data)
+        self.multi_index_manager.add_index('summaries', summary_index)
+
+        # 创建对象索引
+        object_data = []
+        for i, node in enumerate(nodes):
+            obj = {
+                'id': f"doc_{i}",
+                'text': node.text,
+                'metadata': getattr(node, 'metadata', {}),
+                'length': len(node.text)
+            }
+            object_data.append(obj)
+
+        object_index = IndexFactory.create_index('object', 'document_objects',
+                                                 {'indexed_fields': ['id', 'length']})
+        object_index.build(object_data)
+        self.multi_index_manager.add_index('objects', object_index)
+
+    def hybrid_query(self, query_text: str):
+        """
+        混合查询 - 使用多种索引类型进行查询
+
+        Args:
+            query_text: 查询文本
+
+        Returns:
+            混合查询结果
+        """
+        results = {}
+
+        # 向量搜索（原有功能）
+        vector_results = self.query_engine.query(query_text)
+        results['vector'] = vector_results
+
+        # 关键词搜索
+        keyword_index = self.multi_index_manager.get_index('keywords')
+        if keyword_index:
+            keywords = query_text.split()
+            keyword_results = keyword_index.query(keywords, operator='OR')
+            results['keywords'] = keyword_results
+
+        # 摘要搜索
+        summary_index = self.multi_index_manager.get_index('summaries')
+        if summary_index:
+            summary_results = summary_index.query(query_text)
+            results['summaries'] = summary_results
+
+        # 对象过滤
+        object_index = self.multi_index_manager.get_index('objects')
+        if object_index:
+            # 示例：查找特定长度范围的文档
+            object_results = object_index.query({'length': {'$gt': 100}})
+            results['objects'] = object_results
+
+        return results
 
     def initialize_system(self):
         """
@@ -132,9 +225,10 @@ class RAGSystem:
 
             self.index = VectorStoreIndex(nodes, storage_context=storage_context)
             self.logger.log_message("索引创建成功")
+            # 创建额外的索引类型
+            self._create_additional_indexes(nodes)
             if index_span is not None:
                 index_span.end()
-
             # 创建索引后立即检查数据
             try:
                 collection = Collection(name=self.milvus_manager.collection_name)
@@ -250,7 +344,8 @@ class RAGSystem:
 
             self.index = VectorStoreIndex(nodes, storage_context=storage_context)
             self.logger.log_message("索引创建成功")
-
+            # 创建额外的索引类型
+            self._create_additional_indexes(nodes)
             # 创建索引后立即检查数据
             try:
                 collection = Collection(name=self.milvus_manager.collection_name)

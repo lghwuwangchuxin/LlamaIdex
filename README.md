@@ -497,6 +497,201 @@ class CustomTransformer(TransformComponent):
         return processed_nodes
 ```
 
+### 存储索引模块优化
+
+基于当前的 [storage_index.py](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py) 实现，系统已支持多种索引类型，包括：
+
+- [VectorStoreIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L69-L156): 向量存储索引，用于语义相似性搜索
+- [SummaryIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L159-L233): 文档摘要索引，支持基于摘要的快速检索
+- [ObjectIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L236-L299): 对象索引，用于结构化数据查询
+- [KnowledgeGraphIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L302-L384): 知识图谱索引，支持实体关系查询
+- [TreeIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L387-L486): 树形索引，用于层次化数据检索
+- [KeywordTableIndex](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/storage_index.py#L489-L596): 关键词表索引，支持关键词倒排索引查询
+
+### 混合索引管理
+
+系统采用 `HybridIndexManager` 统一管理多种索引类型，提供以下增强功能：
+
+1. **加权混合查询**:
+   - 支持为不同索引类型设置查询权重
+   - 根据权重调整返回结果数量
+   - 智能合并多个索引的查询结果
+
+2. **查询历史记录**:
+   - 自动记录查询历史
+   - 支持查询结果追踪和分析
+   - 限制历史记录数量防止内存溢出
+
+3. **动态索引管理**:
+   - 运行时添加/移除索引
+   - 获取索引统计信息
+   - 支持索引名称列表查询
+
+### 场景化索引构建
+
+通过 `IndexBuilder` 提供针对不同应用场景的索引构建方案：
+
+1. **RAG系统专用索引**:
+   - 自动构建向量索引、关键词索引和摘要索引
+   - 预设合理的查询权重(向量:0.7, 关键词:0.2, 摘要:0.1)
+   - 集成停用词过滤和智能摘要生成
+
+2. **文档搜索专用索引**:
+   - 构建更丰富的关键词索引和对象索引
+   - 支持文档元数据查询
+   - 优化的查询权重配置
+
+3. **知识图谱专用索引**:
+   - 专为实体关系数据设计
+   - 支持复杂的关系查询
+
+## 🛠 配置系统增强
+
+### 索引配置管理
+
+通过 `IndexConfig` 类提供灵活的索引配置管理：
+
+```ini
+[Document]
+# 支持多种分割器类型配置
+splitter_type = sentence  # sentence, token, code, sentence_window, hierarchical, semantic
+
+# 新增索引相关配置
+enable_keyword_index = true
+enable_summary_index = true
+max_keywords_per_doc = 20
+max_summary_length = 200
+```
+
+
+### 动态配置更新
+
+支持运行时动态更新索引配置：
+- `update_config()`: 更新特定索引类型的配置
+- `get_all_config()`: 获取所有配置信息
+- `is_enabled()`: 检查索引类型是否启用
+
+## 🔄 数据处理管道增强
+
+### 增强的数据转换器
+
+在现有 `data_transformers.py` 基础上，新增以下转换器：
+
+1. **DocumentSummarizer**: 文档摘要生成器
+   - 自动生成文档摘要用于索引构建
+   - 支持多种摘要策略(首句摘要、关键词摘要等)
+
+2. **KeywordExtractor**: 关键词提取器
+   - 基于TF-IDF算法提取文档关键词
+   - 支持自定义停用词列表
+
+3. **EntityRecognizer`: 实体识别器
+   - 识别文档中的命名实体
+   - 为知识图谱索引准备数据
+
+### 管道集成优化
+
+```python
+def _create_ingestion_pipeline(self) -> IngestionPipeline:
+    transformations = [
+        DocumentCleaner(),
+        ContentFilter(),
+        DocumentDeduplicator(),
+        MetadataEnricher(),
+        DocumentSummarizer(
+            max_length=200,
+            strategy="sentence_extraction"
+        ),
+        KeywordExtractor(
+            max_keywords=20,
+            language="chinese"
+        )
+    ]
+    return IngestionPipeline(transformations=transformations)
+```
+
+
+## 📊 查询系统增强
+
+### 多维度查询支持
+
+1. **向量语义查询**:
+   - 基于余弦相似度或欧氏距离的相似性搜索
+   - 支持top-k结果返回
+
+2. **关键词精确查询**:
+   - 支持AND/OR操作符组合查询
+   - 倒排索引快速定位
+
+3. **摘要模糊查询**:
+   - 基于关键词匹配度的文档检索
+   - 支持全文检索模式
+
+4. **对象结构化查询**:
+   - 支持字段精确匹配查询
+   - 多字段组合查询
+
+### 查询结果融合
+
+通过加权算法融合多个索引的查询结果：
+```python
+# 查询权重配置示例
+weights = {
+    'vector': 0.7,      # 向量搜索权重
+    'keyword': 0.2,     # 关键词搜索权重
+    'summary': 0.1      # 摘要搜索权重
+}
+```
+
+
+## 🔧 性能优化
+
+### 索引持久化优化
+
+1. **增量保存**: 只保存发生变化的索引部分
+2. **压缩存储**: 对向量数据进行压缩存储
+3. **并行加载**: 支持多索引并行加载
+
+### 查询缓存机制
+
+1. **查询结果缓存**: 缓存高频查询结果
+2. **索引预热**: 系统启动时预加载热点索引
+3. **内存优化**: 智能管理索引内存占用
+
+## 📈 监控与调试
+
+### 索引统计信息
+
+提供详细的索引统计信息：
+- 索引创建时间
+- 索引大小和条目数
+- 查询性能指标
+- 存储占用情况
+
+### 查询性能分析
+
+1. **查询耗时统计**: 各索引类型的查询耗时
+2. **命中率分析**: 不同查询策略的命中效果
+3. **资源使用监控**: 内存和CPU使用情况
+
+## 🎯 使用建议
+
+### 索引选择指南
+
+| 应用场景 | 推荐索引类型 | 配置建议 |
+|---------|------------|---------|
+| 语义搜索 | VectorStoreIndex | 使用余弦相似度，top_k=5 |
+| 精确检索 | KeywordTableIndex | 启用停用词过滤，关键词数20-30 |
+| 文档浏览 | SummaryIndex | 摘要长度100-300字符 |
+| 结构查询 | ObjectIndex | 预定义索引字段 |
+| 知识推理 | KnowledgeGraphIndex | 构建实体关系网络 |
+
+### 性能调优建议
+
+1. **合理设置索引权重**: 根据业务场景调整各索引权重
+2. **控制索引规模**: 避免索引过大影响查询性能
+3. **定期维护**: 清理过期索引，优化存储结构
+4. **监控关键指标**: 关注查询响应时间和命中率
 
 ### 性能优化建议
 
