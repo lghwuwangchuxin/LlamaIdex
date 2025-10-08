@@ -390,6 +390,120 @@ splitter_type = sentence  # 可选: sentence, token, code, markdown, html, json,
 | 需要上下文 | `SentenceWindowNodeParser` | 提供前后文信息 |
 | 多层级检索 | `HierarchicalNodeParser` | 构建层次化索引 |
 
+## 🔄 数据管道转换说明
+
+系统采用模块化的数据管道架构，通过一系列转换器对原始文档进行预处理、清洗、增强和优化，以提高RAG系统的整体性能和准确性。
+
+### 数据管道架构
+
+数据管道基于 `llama_index.core.ingestion.IngestionPipeline` 构建，包含多个可插拔的转换组件，每个组件负责特定的数据处理任务。
+
+### 转换器类型详解
+
+#### 1. DocumentCleaner（文档清理器）
+- **功能**：清理文档中的多余空白字符和空行
+- **配置选项**：
+  - `remove_extra_spaces`: 移除多余空白字符
+  - `remove_empty_lines`: 移除空行
+- **应用场景**：标准化文档格式，提高文本质量
+
+#### 2. ContentFilter（内容过滤器）
+- **功能**：根据长度过滤文档内容
+- **配置选项**：
+  - `min_length`: 最小文档长度
+  - `max_length`: 最大文档长度
+- **应用场景**：过滤过短或过长的无效内容
+
+#### 3. DocumentDeduplicator（文档去重器）
+- **功能**：移除重复文档
+- **配置选项**：
+  - `use_content_hash`: 基于内容哈希去重
+- **应用场景**：避免重复内容影响检索效果
+
+#### 4. MetadataEnricher（元数据增强器）
+- **功能**：丰富文档元数据信息
+- **配置选项**：
+  - `add_hash`: 添加内容哈希值
+  - `add_timestamp`: 添加处理时间戳
+  - `custom_metadata`: 自定义元数据
+- **应用场景**：为文档添加追踪和分类信息
+
+#### 5. NodeMetadataEnhancer（节点元数据增强器）
+- **功能**：增强分割后节点的元数据
+- **配置选项**：
+  - `add_parent_info`: 添加父文档信息
+  - `add_hierarchy_info`: 添加层次结构信息
+- **应用场景**：为检索结果提供更丰富的上下文信息
+
+### 数据处理流程
+
+```mermaid
+graph TD
+A[原始文档] --> B[DocumentCleaner]
+B --> C[ContentFilter]
+C --> D[DocumentDeduplicator]
+D --> E[MetadataEnricher]
+E --> F[文档分割器]
+F --> G[NodeMetadataEnhancer]
+G --> H[向量存储]
+```
+
+
+### 配置说明
+
+数据管道转换器在 [document_processor.py](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/document_processor.py) 中配置，通过 [_create_ingestion_pipeline](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/document_processor.py#L60-L74) 方法创建：
+
+```python
+def _create_ingestion_pipeline(self) -> IngestionPipeline:
+    transformations = [
+        DocumentCleaner(
+            remove_extra_spaces=True,
+            remove_empty_lines=True
+        ),
+        ContentFilter(
+            min_length=10,
+            max_length=10000
+        ),
+        DocumentDeduplicator(
+            use_content_hash=True
+        ),
+        MetadataEnricher(
+            add_hash=True,
+            add_timestamp=True,
+            custom_metadata={"source": "document_processor", "pipeline": "ingestion_pipeline"}
+        )
+    ]
+    
+    return IngestionPipeline(transformations=transformations)
+```
+
+
+### 自定义转换器开发
+
+开发者可以创建自定义转换器来满足特定需求：
+
+1. 继承 `TransformComponent` 基类
+2. 实现 [__call__](file:///Users/liuguanghu/PythonPorject/LlamaIdex/src/data_transformers.py#L63-L69) 方法处理文档或节点
+3. 在管道中注册使用
+
+```python
+class CustomTransformer(TransformComponent):
+    def __init__(self, custom_param: bool = True):
+        super().__init__()
+        self.custom_param = custom_param
+    
+    def __call__(self, nodes: List[Document], **kwargs) -> List[Document]:
+        # 实现自定义转换逻辑
+        return processed_nodes
+```
+
+
+### 性能优化建议
+
+1. **合理配置转换器顺序**：将计算密集型转换器放在过滤器之后
+2. **避免重复处理**：利用元数据避免重复计算
+3. **批量处理**：充分利用管道的批量处理能力
+4. **监控转换效果**：通过监控系统观察各转换器的处理时间和效果
 ## 🔒 安全建议
 
 1. **密钥管理**
